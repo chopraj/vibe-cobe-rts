@@ -32,6 +32,7 @@ export const ENEMY_START_Y = 100;
 export const ENEMY_SPACING = 120; // Increased for taller goblin sprites
 export const MAX_VISIBLE_ENEMIES = 10;
 export const ENEMY_SIZE = 32;
+export const ISSUES_PER_WAVE = 5;
 
 // -----------------------------------------------------------------------------
 // Grid

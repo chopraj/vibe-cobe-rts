@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { GameCanvas } from './components/GameCanvas';
 import { RepoSetup } from './components/RepoSetup';
 import { BattleStatus } from './components/BattleStatus';
+import { WaveControls } from './components/WaveControls';
 import { useGameStore } from './stores/gameStore';
 import { useConfig, useIssues } from './hooks/useGitHub';
 import { useBattles } from './hooks/useBattles';
@@ -43,6 +44,7 @@ function App() {
         <>
           <GameCanvas />
           <BattleStatus />
+          <WaveControls />
 
           {/* Config info bar */}
           <div className="fixed bottom-4 left-4 flex items-center gap-3 px-3 py-2 bg-game-bg/90 border border-game-border rounded-md text-game-muted font-mono text-xs z-50">

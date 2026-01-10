@@ -4,6 +4,8 @@ import { createGameConfig } from '../game/config';
 import { useStartBattle, useCancelBattle, useBattles } from '../hooks/useBattles';
 import { useIssues } from '../hooks/useGitHub';
 import { ConfirmDialog } from './ConfirmDialog';
+import { useGameStore } from '../stores/gameStore';
+import { ISSUES_PER_WAVE } from '../constants';
 import type { ArenaScene, GameCallbacks } from '../game/scenes/ArenaScene';
 
 // =============================================================================
@@ -122,13 +124,17 @@ export function GameCanvas() {
     };
   }, [battles, startBattle, getScene]);
 
-  // Sync issues to Phaser
+  // Wave state for slicing issues
+  const currentWave = useGameStore((state) => state.currentWave);
+
+  // Sync issues to Phaser (only current wave's issues)
   useEffect(() => {
     const scene = getScene();
     if (scene?.scene.isActive()) {
-      scene.updateIssues(issues);
+      const waveIssues = issues.slice(0, (currentWave + 1) * ISSUES_PER_WAVE);
+      scene.updateIssues(waveIssues);
     }
-  }, [issues, getScene]);
+  }, [issues, currentWave, getScene]);
 
   // Sync battles to Phaser
   useEffect(() => {

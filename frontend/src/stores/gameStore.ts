@@ -16,6 +16,11 @@ interface GameState {
   // UI state
   showSetup: boolean;
   setShowSetup: (show: boolean) => void;
+
+  // Wave state
+  currentWave: number;
+  nextWave: () => void;
+  resetWaves: () => void;
 }
 
 export const useGameStore = create<GameState>((set) => ({
@@ -24,4 +29,8 @@ export const useGameStore = create<GameState>((set) => ({
 
   showSetup: true,
   setShowSetup: (show) => set({ showSetup: show }),
+
+  currentWave: 0,
+  nextWave: () => set((state) => ({ currentWave: state.currentWave + 1 })),
+  resetWaves: () => set({ currentWave: 0 }),
 }));
