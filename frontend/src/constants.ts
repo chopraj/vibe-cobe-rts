@@ -91,7 +91,7 @@ export const ANIMATION = {
 } as const;
 
 // -----------------------------------------------------------------------------
-// Sprite Sizes
+// Sprite Sizes (approximate display sizes after scaling)
 // -----------------------------------------------------------------------------
 export const SPRITE_SIZES = {
   unit: 24,

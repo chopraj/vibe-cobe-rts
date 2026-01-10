@@ -4,7 +4,7 @@ import { COLORS, SPRITE_SIZES } from '../../constants';
 // =============================================================================
 // BOOT SCENE
 // =============================================================================
-// Generates all game sprites programmatically and shows a loading screen.
+// Loads sprite assets and generates procedural textures.
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -13,7 +13,18 @@ export class BootScene extends Phaser.Scene {
 
   preload(): void {
     this.createLoadingScreen();
-    this.createSprites();
+    this.loadSprites();
+  }
+
+  private loadSprites(): void {
+    this.load.spritesheet('agent', 'assets/sprites/agent.png', {
+      frameWidth: 704,
+      frameHeight: 1536,
+    });
+    this.load.spritesheet('issue-sprite', 'assets/sprites/issue.png', {
+      frameWidth: 704,
+      frameHeight: 1536,
+    });
   }
 
   private createLoadingScreen(): void {
@@ -43,36 +54,16 @@ export class BootScene extends Phaser.Scene {
     });
   }
 
-  private createSprites(): void {
-    const { unit, enemy, battleEffect } = SPRITE_SIZES;
+  private createProceduralTextures(): void {
+    const { battleEffect } = SPRITE_SIZES;
 
-    // Unit sprite (blue square)
-    const unitG = this.make.graphics({ x: 0, y: 0 });
-    unitG.fillStyle(COLORS.unit, 1);
-    unitG.fillRect(0, 0, unit, unit);
-    unitG.lineStyle(2, COLORS.unitBorder);
-    unitG.strokeRect(0, 0, unit, unit);
-    unitG.generateTexture('unit', unit, unit);
-    unitG.destroy();
-
-    // Unit selected sprite (blue with gold border)
-    const unitSelG = this.make.graphics({ x: 0, y: 0 });
-    unitSelG.fillStyle(COLORS.unit, 1);
-    unitSelG.fillRect(0, 0, unit, unit);
-    unitSelG.lineStyle(3, COLORS.unitSelectedBorder);
-    unitSelG.strokeRect(0, 0, unit, unit);
-    unitSelG.generateTexture('unit-selected', unit, unit);
-    unitSelG.destroy();
-
-    // Issue enemy sprite (red circle with eyes)
-    const issueG = this.make.graphics({ x: 0, y: 0 });
-    issueG.fillStyle(COLORS.enemy, 1);
-    issueG.fillCircle(enemy / 2, enemy / 2, enemy / 2 - 2);
-    issueG.fillStyle(COLORS.enemyDark, 1);
-    issueG.fillCircle(enemy / 2 - 4, enemy / 2 - 4, 4);
-    issueG.fillCircle(enemy / 2 + 4, enemy / 2 - 4, 4);
-    issueG.generateTexture('issue', enemy, enemy);
-    issueG.destroy();
+    // Selection circle (gold ring under selected units)
+    const selectionSize = 48;
+    const selectionG = this.make.graphics({ x: 0, y: 0 });
+    selectionG.fillStyle(COLORS.unitSelectedBorder, 0.4);
+    selectionG.fillEllipse(selectionSize / 2, selectionSize / 2, selectionSize, selectionSize / 2);
+    selectionG.generateTexture('selection-circle', selectionSize, selectionSize / 2);
+    selectionG.destroy();
 
     // Battle effect sprite (yellow burst)
     const battleG = this.make.graphics({ x: 0, y: 0 });
@@ -102,6 +93,9 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
+    // Generate procedural textures after assets are loaded
+    this.createProceduralTextures();
+
     this.scene.start('ArenaScene');
     this.scene.start('UIScene');
   }

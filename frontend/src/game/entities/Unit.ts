@@ -1,5 +1,8 @@
 import Phaser from 'phaser';
 
+// Scale factor to resize the large sprite sheet frames (704x1536) to game size
+const AGENT_SCALE = .1;
+
 export class Unit extends Phaser.GameObjects.Sprite {
   private unitIndex: number;
   private selected: boolean = false;
@@ -8,17 +11,25 @@ export class Unit extends Phaser.GameObjects.Sprite {
   private speed: number = 150;
   private engagedBattleId: string | null = null;
   private targetIssueNumber: number | null = null; // Issue we're moving toward
+  private selectionCircle: Phaser.GameObjects.Sprite;
 
   constructor(scene: Phaser.Scene, x: number, y: number, index: number) {
-    super(scene, x, y, 'unit');
+    super(scene, x, y, 'agent', 0);
     this.unitIndex = index;
     this.selected = true; // Start selected
+
+    // Scale down the large sprite
+    this.setScale(AGENT_SCALE);
+
+    // Create selection circle underneath the unit
+    this.selectionCircle = scene.add.sprite(x, y + 25, 'selection-circle');
+    this.selectionCircle.setDepth(-1); // Render behind the unit
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
     this.setInteractive();
-    this.updateTexture();
+    this.updateSelectionVisual();
   }
 
   getIndex(): number {
@@ -31,15 +42,15 @@ export class Unit extends Phaser.GameObjects.Sprite {
 
   setSelected(selected: boolean): void {
     this.selected = selected;
-    this.updateTexture();
+    this.updateSelectionVisual();
   }
 
   toggleSelected(): void {
     this.setSelected(!this.selected);
   }
 
-  private updateTexture(): void {
-    this.setTexture(this.selected ? 'unit-selected' : 'unit');
+  private updateSelectionVisual(): void {
+    this.selectionCircle.setVisible(this.selected);
   }
 
   moveTo(x: number, y: number, targetIssueNumber?: number): void {
@@ -106,6 +117,9 @@ export class Unit extends Phaser.GameObjects.Sprite {
 
     this.x += vx;
     this.y += vy;
+
+    // Update selection circle position to follow unit
+    this.selectionCircle.setPosition(this.x, this.y + 25);
   }
 
   getUnitBounds(): Phaser.Geom.Rectangle {
@@ -115,5 +129,10 @@ export class Unit extends Phaser.GameObjects.Sprite {
       this.width,
       this.height
     );
+  }
+
+  destroy(fromScene?: boolean): void {
+    this.selectionCircle.destroy();
+    super.destroy(fromScene);
   }
 }

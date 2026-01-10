@@ -1,6 +1,9 @@
 import Phaser from 'phaser';
 import type { GitHubIssue } from '../../types';
 
+// Scale factor to resize the large sprite sheet frames (704x1536) to game size
+const ISSUE_SCALE = 0.1;
+
 export class IssueEnemy extends Phaser.GameObjects.Container {
   private sprite: Phaser.GameObjects.Sprite;
   private label: Phaser.GameObjects.Text;
@@ -10,12 +13,11 @@ export class IssueEnemy extends Phaser.GameObjects.Container {
     super(scene, x, y);
     this.issue = issue;
 
-    // Create the sprite
-    this.sprite = scene.add.sprite(0, 0, 'issue');
+    this.sprite = scene.add.sprite(0, 0, 'issue-sprite', 0);
+    this.sprite.setScale(ISSUE_SCALE);
     this.add(this.sprite);
 
-    // Create the label showing issue number
-    this.label = scene.add.text(0, -25, `#${issue.number}`, {
+    this.label = scene.add.text(0, -45, `#${issue.number}`, {
       font: 'bold 12px monospace',
       color: '#ff6666',
       backgroundColor: '#1a1a2e',
@@ -63,7 +65,7 @@ export class IssueEnemy extends Phaser.GameObjects.Container {
         ? this.issue.title.slice(0, 40) + '...'
         : this.issue.title;
 
-    this.tooltip = this.scene.add.text(this.x, this.y + 30, truncatedTitle, {
+    this.tooltip = this.scene.add.text(this.x, this.y + 50, truncatedTitle, {
       font: '11px monospace',
       color: '#ffffff',
       backgroundColor: '#333366',
@@ -94,11 +96,14 @@ export class IssueEnemy extends Phaser.GameObjects.Container {
   }
 
   getBounds(): Phaser.Geom.Rectangle {
+    // Scaled sprite is approximately 35x77 pixels
+    const width = 35;
+    const height = 77;
     return new Phaser.Geom.Rectangle(
-      this.x - 16,
-      this.y - 16,
-      32,
-      32
+      this.x - width / 2,
+      this.y - height / 2,
+      width,
+      height
     );
   }
 
