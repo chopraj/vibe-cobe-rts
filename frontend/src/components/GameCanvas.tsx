@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
-import Phaser from 'phaser';
-import { createGameConfig } from '../game/config';
-import { useGameStore } from '../stores/gameStore';
-import { useStartBattle, useCancelBattle } from '../hooks/useBattles';
-import { ConfirmDialog } from './ConfirmDialog';
-import type { ArenaScene } from '../game/scenes/ArenaScene';
-import type { Battle } from '../types';
+import { useEffect, useRef, useState, useCallback } from "react";
+import Phaser from "phaser";
+import { createGameConfig } from "../game/config";
+import { useGameStore } from "../stores/gameStore";
+import { useStartBattle, useCancelBattle } from "../hooks/useBattles";
+import { ConfirmDialog } from "./ConfirmDialog";
+import type { ArenaScene } from "../game/scenes/ArenaScene";
+import type { Battle } from "../types";
 
 interface CancelConfirmation {
   battleId: string;
@@ -16,7 +16,7 @@ export function GameCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
   const gameCallbacksRef = useRef<{
-    startBattle: (issueNumber: number) => void;
+    startBattle: (issueNumber: number, unitCount: number) => void;
     getBattles: () => Battle[];
   }>({
     startBattle: () => {},
@@ -28,7 +28,8 @@ export function GameCanvas() {
   const cancelBattle = useCancelBattle();
 
   // State for cancel confirmation dialog
-  const [cancelConfirmation, setCancelConfirmation] = useState<CancelConfirmation | null>(null);
+  const [cancelConfirmation, setCancelConfirmation] =
+    useState<CancelConfirmation | null>(null);
 
   // Handle cancel confirmation
   const handleConfirmCancel = useCallback(() => {
@@ -57,7 +58,8 @@ export function GameCanvas() {
   // Keep gameCallbacksRef updated with current values to avoid stale closures
   useEffect(() => {
     gameCallbacksRef.current = {
-      startBattle: (issueNumber: number) => startBattle.mutate(issueNumber),
+      startBattle: (issueNumber: number, unitCount: number) =>
+        startBattle.mutate({ issueNumber, unitCount }),
       getBattles: () => battles,
     };
   }, [battles, startBattle]);
@@ -70,29 +72,34 @@ export function GameCanvas() {
     gameRef.current = new Phaser.Game(config);
 
     // Wait for game to be ready, then set up scene events
-    gameRef.current.events.on('ready', () => {
-      const arenaScene = gameRef.current?.scene.getScene('ArenaScene') as ArenaScene;
+    gameRef.current.events.on("ready", () => {
+      const arenaScene = gameRef.current?.scene.getScene(
+        "ArenaScene"
+      ) as ArenaScene;
       if (!arenaScene) return;
 
       const setupGameEvents = () => {
-        arenaScene.events.emit('setGameEvents', {
-          onAttackIssue: (issueNumber: number) => {
+        arenaScene.events.emit("setGameEvents", {
+          onAttackIssue: (issueNumber: number, unitCount: number) => {
             // Use ref to get current battles (avoids stale closure)
             const currentBattles = gameCallbacksRef.current.getBattles();
             const existingBattle = currentBattles.find(
               (b) =>
                 b.issueNumber === issueNumber &&
-                (b.status === 'pending' || b.status === 'fighting')
+                (b.status === "pending" || b.status === "fighting")
             );
             if (existingBattle) {
               console.log(`Already battling issue #${issueNumber}`);
               return;
             }
 
-            // Use ref to call startBattle (avoids stale closure)
-            gameCallbacksRef.current.startBattle(issueNumber);
+            // Use ref to call startBattle with unit count (avoids stale closure)
+            gameCallbacksRef.current.startBattle(issueNumber, unitCount);
           },
-          onRequestCancelBattle: (battleId: string, callback: (confirmed: boolean) => void) => {
+          onRequestCancelBattle: (
+            battleId: string,
+            callback: (confirmed: boolean) => void
+          ) => {
             setCancelConfirmation({ battleId, callback });
           },
         });
@@ -103,7 +110,7 @@ export function GameCanvas() {
       if (arenaScene.scene.isActive()) {
         setupGameEvents();
       } else {
-        arenaScene.events.once('create', setupGameEvents);
+        arenaScene.events.once("create", setupGameEvents);
       }
     });
 
@@ -115,17 +122,21 @@ export function GameCanvas() {
 
   // Update issues in game
   useEffect(() => {
-    const arenaScene = gameRef.current?.scene.getScene('ArenaScene') as ArenaScene;
+    const arenaScene = gameRef.current?.scene.getScene(
+      "ArenaScene"
+    ) as ArenaScene;
     if (arenaScene && arenaScene.scene.isActive()) {
-      arenaScene.events.emit('updateIssues', issues);
+      arenaScene.events.emit("updateIssues", issues);
     }
   }, [issues]);
 
   // Update battles in game
   useEffect(() => {
-    const arenaScene = gameRef.current?.scene.getScene('ArenaScene') as ArenaScene;
+    const arenaScene = gameRef.current?.scene.getScene(
+      "ArenaScene"
+    ) as ArenaScene;
     if (arenaScene && arenaScene.scene.isActive()) {
-      arenaScene.events.emit('updateBattles', battles);
+      arenaScene.events.emit("updateBattles", battles);
     }
   }, [battles]);
 
@@ -134,11 +145,11 @@ export function GameCanvas() {
       <div
         ref={containerRef}
         style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
         }}
       />
       <ConfirmDialog

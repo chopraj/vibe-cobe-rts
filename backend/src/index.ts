@@ -4,6 +4,7 @@ import healthRoutes from './routes/health.js';
 import githubRoutes from './routes/github.js';
 import battlesRoutes from './routes/battles.js';
 import { logger } from './utils/logger.js';
+import { openCodeService } from './services/OpenCodeService.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -30,7 +31,7 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 });
 
 // Start server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   logger.info(`Server running on http://localhost:${PORT}`);
   logger.info('Endpoints:');
   logger.info('  GET  /api/health       - Health check');
@@ -41,4 +42,43 @@ app.listen(PORT, () => {
   logger.info('  POST /api/battles      - Start new battle');
   logger.info('  GET  /api/battles/:id  - Get battle status');
   logger.info('  DELETE /api/battles/:id - Cancel battle');
+});
+
+// Graceful shutdown handler
+async function gracefulShutdown(signal: string): Promise<void> {
+  logger.info(`Received ${signal}, starting graceful shutdown...`);
+
+  // Stop accepting new connections
+  server.close(() => {
+    logger.info('HTTP server closed');
+  });
+
+  // Shutdown OpenCode service (kills all agent sessions)
+  try {
+    await openCodeService.shutdown();
+  } catch (error) {
+    logger.error('Error during OpenCodeService shutdown:', error);
+  }
+
+  logger.info('Graceful shutdown complete');
+  process.exit(0);
+}
+
+// Register shutdown handlers
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Handle uncaught exceptions - try to cleanup before crashing
+process.on('uncaughtException', async (error) => {
+  logger.error('Uncaught exception:', error);
+  try {
+    await openCodeService.shutdown();
+  } catch (e) {
+    logger.error('Error during emergency shutdown:', e);
+  }
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  logger.error('Unhandled rejection:', reason);
 });

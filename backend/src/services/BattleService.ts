@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid';
-import type { Battle, AgentInstance, GitHubIssue } from '../types/index.js';
+import type { Battle, AgentInstance, GitHubIssue, AgentDetailedState } from '../types/index.js';
 import { githubService } from './GitHubService.js';
 import { worktreeService } from './WorktreeService.js';
 import { openCodeService } from './OpenCodeService.js';
@@ -24,7 +24,7 @@ export class BattleService {
     ).length;
   }
 
-  async startBattle(issue: GitHubIssue): Promise<Battle> {
+  async startBattle(issue: GitHubIssue, unitCount: number): Promise<Battle> {
     // Check concurrent battle limit
     if (this.getActiveBattleCount() >= MAX_CONCURRENT_BATTLES) {
       throw new Error(`Maximum concurrent battles (${MAX_CONCURRENT_BATTLES}) reached`);
@@ -36,7 +36,6 @@ export class BattleService {
     }
 
     const battleId = nanoid(10);
-    const unitCount = config.unitCount;
 
     // Create the battle
     const battle: Battle = {
@@ -105,7 +104,7 @@ export class BattleService {
   private async handleAgentEvent(
     battleId: string,
     agentId: string,
-    event: 'working' | 'success' | 'failed',
+    event: 'working' | 'success' | 'failed' | 'progress',
     data?: unknown
   ): Promise<void> {
     const battle = this.battles.get(battleId);
@@ -113,6 +112,18 @@ export class BattleService {
 
     const agent = battle.agents.find((a) => a.id === agentId);
     if (!agent) return;
+
+    if (event === 'progress') {
+      // Update agent's detailed state
+      const progressData = data as { detailedState?: AgentDetailedState };
+      if (progressData?.detailedState) {
+        agent.detailedState = progressData.detailedState;
+        logger.debug(
+          `Battle ${battleId} agent ${agentId} progress: ${progressData.detailedState.activity}`
+        );
+      }
+      return;
+    }
 
     logger.info(`Battle ${battleId} agent ${agentId} event: ${event}`);
 

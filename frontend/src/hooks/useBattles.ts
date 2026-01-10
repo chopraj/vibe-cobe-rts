@@ -21,25 +21,50 @@ export function useBattles() {
       if (!res.ok) {
         throw new Error('Failed to fetch battles');
       }
-      const data = await res.json();
+      const data: Battle[] = await res.json();
+
+      // Log detailed state for active battles
+      data.forEach((battle) => {
+        if (battle.status === 'fighting') {
+          battle.agents.forEach((agent) => {
+            if (agent.detailedState) {
+              console.log(
+                `[Agent ${agent.id}]`,
+                `activity=${agent.detailedState.activity}`,
+                agent.detailedState.currentTool ? `tool=${agent.detailedState.currentTool}` : '',
+                `tokens=${agent.detailedState.tokens.input + agent.detailedState.tokens.output}`,
+                `files=${agent.detailedState.filesModified.length}`,
+                `steps=${agent.detailedState.stepsCompleted}`,
+                agent.detailedState.pendingPermission ? `⚠️ PERMISSION: ${agent.detailedState.pendingPermission.title}` : ''
+              );
+            }
+          });
+        }
+      });
+
       setBattles(data);
       return data;
     },
     enabled: !!config?.configured,
-    // Poll every 2 seconds if there are active battles, otherwise every 10 seconds
-    refetchInterval: hasActiveBattles ? 2000 : 10000,
+    // Poll every 500ms if there are active battles, otherwise every 10 seconds
+    refetchInterval: hasActiveBattles ? 500 : 10000,
   });
+}
+
+export interface StartBattleParams {
+  issueNumber: number;
+  unitCount: number;
 }
 
 export function useStartBattle() {
   const queryClient = useQueryClient();
 
-  return useMutation<Battle, Error, number>({
-    mutationFn: async (issueNumber) => {
+  return useMutation<Battle, Error, StartBattleParams>({
+    mutationFn: async ({ issueNumber, unitCount }) => {
       const res = await fetch(`${API_BASE}/battles`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ issueNumber }),
+        body: JSON.stringify({ issueNumber, unitCount }),
       });
       if (!res.ok) {
         const error = await res.json();

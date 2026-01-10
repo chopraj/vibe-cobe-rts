@@ -1,8 +1,15 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { battleService } from '../services/BattleService.js';
 import { githubService } from '../services/GitHubService.js';
+import { openCodeService } from '../services/OpenCodeService.js';
 import { StartBattleSchema } from '../types/index.js';
 import { logger } from '../utils/logger.js';
+
+const PermissionResponseSchema = z.object({
+  permissionId: z.string(),
+  response: z.enum(['once', 'always', 'reject']),
+});
 
 const router = Router();
 
@@ -39,8 +46,8 @@ router.post('/', async (req, res) => {
       return;
     }
 
-    // Start the battle
-    const battle = await battleService.startBattle(issue);
+    // Start the battle with the specified unit count
+    const battle = await battleService.startBattle(issue, input.unitCount);
     res.status(201).json(battle);
   } catch (error) {
     logger.error('Failed to start battle', error);
@@ -84,6 +91,69 @@ router.delete('/:id/remove', (req, res) => {
 
   battleService.removeBattle(req.params.id);
   res.json({ success: true, message: 'Battle removed' });
+});
+
+// POST /api/battles/:id/agents/:agentId/permission - Respond to a permission request
+router.post('/:id/agents/:agentId/permission', async (req, res) => {
+  const { id: battleId, agentId } = req.params;
+
+  const battle = battleService.getBattle(battleId);
+  if (!battle) {
+    res.status(404).json({ error: 'Battle not found' });
+    return;
+  }
+
+  const agent = battle.agents.find((a) => a.id === agentId);
+  if (!agent) {
+    res.status(404).json({ error: 'Agent not found' });
+    return;
+  }
+
+  try {
+    const input = PermissionResponseSchema.parse(req.body);
+
+    const success = await openCodeService.respondToPermission(
+      agentId,
+      input.permissionId,
+      input.response
+    );
+
+    if (!success) {
+      res.status(400).json({ error: 'Failed to respond to permission' });
+      return;
+    }
+
+    res.json({ success: true, message: 'Permission response sent' });
+  } catch (error) {
+    logger.error('Failed to respond to permission', error);
+    res.status(400).json({
+      error: error instanceof Error ? error.message : 'Failed to respond to permission',
+    });
+  }
+});
+
+// GET /api/battles/:id/agents/:agentId/state - Get detailed state for an agent
+router.get('/:id/agents/:agentId/state', (req, res) => {
+  const { id: battleId, agentId } = req.params;
+
+  const battle = battleService.getBattle(battleId);
+  if (!battle) {
+    res.status(404).json({ error: 'Battle not found' });
+    return;
+  }
+
+  const agent = battle.agents.find((a) => a.id === agentId);
+  if (!agent) {
+    res.status(404).json({ error: 'Agent not found' });
+    return;
+  }
+
+  // Return the detailed state from the agent instance
+  res.json({
+    agentId,
+    status: agent.status,
+    detailedState: agent.detailedState || null,
+  });
 });
 
 export default router;

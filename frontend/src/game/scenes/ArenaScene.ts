@@ -1,14 +1,17 @@
-import Phaser from 'phaser';
-import { Unit } from '../entities/Unit';
-import { IssueEnemy } from '../entities/IssueEnemy';
-import { BattleEffect } from '../entities/BattleEffect';
-import type { GitHubIssue, Battle } from '../../types';
-import { GAME_WIDTH, GAME_HEIGHT } from '../config';
+import Phaser from "phaser";
+import { Unit } from "../entities/Unit";
+import { IssueEnemy } from "../entities/IssueEnemy";
+import { BattleEffect } from "../entities/BattleEffect";
+import type { GitHubIssue, Battle } from "../../types";
+import { GAME_WIDTH, GAME_HEIGHT } from "../config";
 
 // Event types for communication with React
 export interface GameEvents {
-  onAttackIssue: (issueNumber: number) => void;
-  onRequestCancelBattle: (battleId: string, callback: (confirmed: boolean) => void) => void;
+  onAttackIssue: (issueNumber: number, unitCount: number) => void;
+  onRequestCancelBattle: (
+    battleId: string,
+    callback: (confirmed: boolean) => void
+  ) => void;
 }
 
 // Track pending attack intents
@@ -36,7 +39,7 @@ export class ArenaScene extends Phaser.Scene {
   private readonly PROXIMITY_RADIUS = 50; // Distance to trigger battle
 
   constructor() {
-    super({ key: 'ArenaScene' });
+    super({ key: "ArenaScene" });
   }
 
   create(): void {
@@ -50,9 +53,9 @@ export class ArenaScene extends Phaser.Scene {
     this.setupInput();
 
     // Listen for data updates from React
-    this.events.on('updateIssues', this.updateIssues, this);
-    this.events.on('updateBattles', this.updateBattles, this);
-    this.events.on('setGameEvents', (events: GameEvents) => {
+    this.events.on("updateIssues", this.updateIssues, this);
+    this.events.on("updateBattles", this.updateBattles, this);
+    this.events.on("setGameEvents", (events: GameEvents) => {
       this.gameEvents = events;
     });
   }
@@ -83,7 +86,7 @@ export class ArenaScene extends Phaser.Scene {
 
   private setupInput(): void {
     // Right-click to move selected units
-    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+    this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
       if (pointer.rightButtonDown()) {
         this.handleRightClick(pointer);
       } else if (pointer.leftButtonDown()) {
@@ -91,13 +94,13 @@ export class ArenaScene extends Phaser.Scene {
       }
     });
 
-    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+    this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
       if (this.selectionStart && pointer.leftButtonDown()) {
         this.updateSelectionBox(pointer);
       }
     });
 
-    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+    this.input.on("pointerup", (pointer: Phaser.Input.Pointer) => {
       if (this.selectionStart) {
         this.endSelectionBox(pointer);
       }
@@ -109,10 +112,12 @@ export class ArenaScene extends Phaser.Scene {
 
   private startSelectionBox(pointer: Phaser.Input.Pointer): void {
     // Check if clicking on a unit
-    const clickedUnit = this.units.find((u) => u.getUnitBounds().contains(pointer.x, pointer.y));
+    const clickedUnit = this.units.find((u) =>
+      u.getUnitBounds().contains(pointer.x, pointer.y)
+    );
     if (clickedUnit) {
       // Toggle selection on single unit
-      if (this.input.keyboard?.checkDown(this.input.keyboard.addKey('SHIFT'))) {
+      if (this.input.keyboard?.checkDown(this.input.keyboard.addKey("SHIFT"))) {
         clickedUnit.toggleSelected();
       } else {
         // Deselect all and select this one
@@ -156,7 +161,9 @@ export class ArenaScene extends Phaser.Scene {
 
     // Select units within the box
     if (bounds.width > 5 || bounds.height > 5) {
-      if (!this.input.keyboard?.checkDown(this.input.keyboard.addKey('SHIFT'))) {
+      if (
+        !this.input.keyboard?.checkDown(this.input.keyboard.addKey("SHIFT"))
+      ) {
         this.units.forEach((u) => u.setSelected(false));
       }
 
@@ -201,7 +208,10 @@ export class ArenaScene extends Phaser.Scene {
     this.processMove(selectedUnits, pointer);
   }
 
-  private processMove(selectedUnits: Unit[], pointer: Phaser.Input.Pointer): void {
+  private processMove(
+    selectedUnits: Unit[],
+    pointer: Phaser.Input.Pointer
+  ): void {
     // Check if clicking on an issue enemy
     for (const [issueNumber, enemy] of this.issueEnemies) {
       if (enemy.getBounds().contains(pointer.x, pointer.y)) {
@@ -223,7 +233,7 @@ export class ArenaScene extends Phaser.Scene {
     const baseY = pointer.y;
 
     selectedUnits.forEach((unit, index) => {
-      const offsetX = (index % 3 - 1) * 30;
+      const offsetX = ((index % 3) - 1) * 30;
       const offsetY = Math.floor(index / 3) * 30;
       unit.moveTo(baseX + offsetX, baseY + offsetY);
     });
@@ -273,7 +283,7 @@ export class ArenaScene extends Phaser.Scene {
 
     // Move units toward the enemy
     units.forEach((unit, index) => {
-      const offsetX = (index % 3 - 1) * 30;
+      const offsetX = ((index % 3) - 1) * 30;
       const offsetY = Math.floor(index / 3) * 30 - 30;
       unit.moveTo(enemy.x + offsetX, enemy.y + offsetY, issueNumber);
     });
@@ -337,7 +347,10 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   private triggerBattle(issueNumber: number, intent: AttackIntent): void {
-    console.log(`Battle triggered for issue #${issueNumber}`);
+    const unitCount = intent.assignedUnits.length;
+    console.log(
+      `Battle triggered for issue #${issueNumber} with ${unitCount} units`
+    );
 
     // Remove the attack intent visuals
     this.removeAttackIntent(issueNumber);
@@ -350,10 +363,9 @@ export class ArenaScene extends Phaser.Scene {
       unit.clearTarget();
     });
 
-    // Trigger the attack callback to start the battle
+    // Trigger the attack callback to start the battle with the actual unit count
     if (this.gameEvents?.onAttackIssue) {
-      console.log("got here")
-      this.gameEvents.onAttackIssue(issueNumber);
+      this.gameEvents.onAttackIssue(issueNumber, unitCount);
     } else {
       console.log("no game events");
     }
@@ -390,7 +402,7 @@ export class ArenaScene extends Phaser.Scene {
     // Track which issues have active battles
     this.activeBattleIssues.clear();
     battles.forEach((b) => {
-      if (b.status === 'pending' || b.status === 'fighting') {
+      if (b.status === "pending" || b.status === "fighting") {
         this.activeBattleIssues.add(b.issueNumber);
       }
     });
@@ -398,7 +410,11 @@ export class ArenaScene extends Phaser.Scene {
     // Clear old effects
     for (const [battleId, effect] of this.battleEffects) {
       const battle = battles.find((b) => b.id === battleId);
-      if (!battle || battle.status === 'victory' || battle.status === 'defeat') {
+      if (
+        !battle ||
+        battle.status === "victory" ||
+        battle.status === "defeat"
+      ) {
         effect.destroy();
         this.battleEffects.delete(battleId);
 
@@ -413,7 +429,7 @@ export class ArenaScene extends Phaser.Scene {
 
     // Create/update battle effects
     battles.forEach((battle) => {
-      if (battle.status === 'fighting') {
+      if (battle.status === "fighting") {
         const enemy = this.issueEnemies.get(battle.issueNumber);
         if (enemy && !this.battleEffects.has(battle.id)) {
           const effect = new BattleEffect(this, enemy.x, enemy.y, battle);
@@ -432,12 +448,12 @@ export class ArenaScene extends Phaser.Scene {
       }
 
       // Show victory/defeat effect
-      if (battle.status === 'victory' || battle.status === 'defeat') {
+      if (battle.status === "victory" || battle.status === "defeat") {
         const enemy = this.issueEnemies.get(battle.issueNumber);
         if (enemy) {
-          this.showBattleResult(enemy.x, enemy.y, battle.status === 'victory');
+          this.showBattleResult(enemy.x, enemy.y, battle.status === "victory");
           // Remove the enemy if victory
-          if (battle.status === 'victory') {
+          if (battle.status === "victory") {
             enemy.destroy();
             this.issueEnemies.delete(battle.issueNumber);
           }
@@ -447,7 +463,7 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   private showBattleResult(x: number, y: number, isVictory: boolean): void {
-    const texture = isVictory ? 'victory-effect' : 'defeat-effect';
+    const texture = isVictory ? "victory-effect" : "defeat-effect";
     const effect = this.add.sprite(x, y, texture);
     effect.setScale(0.5);
 
@@ -457,7 +473,7 @@ export class ArenaScene extends Phaser.Scene {
       scale: 2,
       alpha: 0,
       duration: 1500,
-      ease: 'Power2',
+      ease: "Power2",
       onComplete: () => effect.destroy(),
     });
   }
