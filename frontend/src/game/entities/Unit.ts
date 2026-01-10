@@ -6,6 +6,8 @@ export class Unit extends Phaser.GameObjects.Sprite {
   private targetX: number | null = null;
   private targetY: number | null = null;
   private speed: number = 150;
+  private engagedBattleId: string | null = null;
+  private targetIssueNumber: number | null = null; // Issue we're moving toward
 
   constructor(scene: Phaser.Scene, x: number, y: number, index: number) {
     super(scene, x, y, 'unit');
@@ -40,9 +42,48 @@ export class Unit extends Phaser.GameObjects.Sprite {
     this.setTexture(this.selected ? 'unit-selected' : 'unit');
   }
 
-  moveTo(x: number, y: number): void {
+  moveTo(x: number, y: number, targetIssueNumber?: number): void {
     this.targetX = x;
     this.targetY = y;
+    this.targetIssueNumber = targetIssueNumber ?? null;
+  }
+
+  // Engagement state management
+  isEngaged(): boolean {
+    return this.engagedBattleId !== null;
+  }
+
+  getEngagedBattleId(): string | null {
+    return this.engagedBattleId;
+  }
+
+  engage(battleId: string): void {
+    this.engagedBattleId = battleId;
+    this.targetIssueNumber = null; // Clear target once engaged
+  }
+
+  disengage(): void {
+    this.engagedBattleId = null;
+  }
+
+  // Attack intent tracking
+  getTargetIssueNumber(): number | null {
+    return this.targetIssueNumber;
+  }
+
+  clearTarget(): void {
+    this.targetIssueNumber = null;
+  }
+
+  isMoving(): boolean {
+    return this.targetX !== null && this.targetY !== null;
+  }
+
+  hasArrivedAtTarget(): boolean {
+    if (this.targetX === null || this.targetY === null) return false;
+    const dx = this.targetX - this.x;
+    const dy = this.targetY - this.y;
+    return Math.sqrt(dx * dx + dy * dy) < 5;
   }
 
   update(): void {
