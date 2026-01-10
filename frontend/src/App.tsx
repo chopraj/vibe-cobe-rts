@@ -6,21 +6,21 @@ import { useGameStore } from './stores/gameStore';
 import { useConfig, useIssues } from './hooks/useGitHub';
 import { useBattles } from './hooks/useBattles';
 
+// =============================================================================
+// APP
+// =============================================================================
+// Main application component. Orchestrates game canvas and UI overlays.
+
 function App() {
   const showSetup = useGameStore((state) => state.showSetup);
   const setShowSetup = useGameStore((state) => state.setShowSetup);
   const config = useGameStore((state) => state.config);
 
-  // Fetch initial config
   const { isLoading: configLoading } = useConfig();
-
-  // Fetch issues when configured
   const { isLoading: issuesLoading, error: issuesError } = useIssues();
-
-  // Poll battles
   useBattles();
 
-  // Show setup if not configured after loading
+  // Show setup if not configured
   useEffect(() => {
     if (!configLoading && !config) {
       setShowSetup(true);
@@ -29,14 +29,14 @@ function App() {
 
   if (configLoading) {
     return (
-      <div style={styles.loading}>
-        <p>Loading...</p>
+      <div className="w-screen h-screen flex justify-center items-center text-white font-mono text-lg">
+        Loading...
       </div>
     );
   }
 
   return (
-    <div style={styles.app}>
+    <div className="w-screen h-screen overflow-hidden relative">
       {showSetup && <RepoSetup onClose={() => setShowSetup(false)} />}
 
       {config && (
@@ -44,14 +44,12 @@ function App() {
           <GameCanvas />
           <BattleStatus />
 
-          {/* Config info */}
-          <div style={styles.configInfo}>
-            <span>
-              {config.owner}/{config.repo}
-            </span>
+          {/* Config info bar */}
+          <div className="fixed bottom-4 left-4 flex items-center gap-3 px-3 py-2 bg-game-bg/90 border border-game-border rounded-md text-game-muted font-mono text-xs z-50">
+            <span>{config.owner}/{config.repo}</span>
             <button
               onClick={() => setShowSetup(true)}
-              style={styles.configButton}
+              className="px-2 py-1 text-[10px] font-mono bg-transparent border border-game-muted rounded text-game-muted cursor-pointer hover:text-white hover:border-white transition-colors"
             >
               Change
             </button>
@@ -59,11 +57,13 @@ function App() {
 
           {/* Loading/error states */}
           {issuesLoading && (
-            <div style={styles.statusBar}>Loading issues...</div>
+            <div className="fixed bottom-14 left-4 px-3 py-2 bg-game-bg/90 border border-game-border rounded-md text-game-muted font-mono text-xs z-50">
+              Loading issues...
+            </div>
           )}
           {issuesError && (
-            <div style={{ ...styles.statusBar, color: '#ff4444' }}>
-              Error loading issues: {issuesError.message}
+            <div className="fixed bottom-14 left-4 px-3 py-2 bg-game-bg/90 border border-game-border rounded-md text-game-error font-mono text-xs z-50">
+              Error: {issuesError.message}
             </div>
           )}
         </>
@@ -71,63 +71,5 @@ function App() {
     </div>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  app: {
-    width: '100vw',
-    height: '100vh',
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  loading: {
-    width: '100vw',
-    height: '100vh',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    color: '#fff',
-    fontFamily: 'monospace',
-    fontSize: 18,
-  },
-  configInfo: {
-    position: 'fixed',
-    bottom: 16,
-    left: 16,
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
-    padding: '8px 12px',
-    backgroundColor: 'rgba(26, 26, 46, 0.9)',
-    border: '1px solid #4a4a6e',
-    borderRadius: 6,
-    color: '#888',
-    fontFamily: 'monospace',
-    fontSize: 12,
-    zIndex: 100,
-  },
-  configButton: {
-    padding: '4px 8px',
-    fontSize: 10,
-    fontFamily: 'monospace',
-    backgroundColor: 'transparent',
-    border: '1px solid #666',
-    borderRadius: 4,
-    color: '#888',
-    cursor: 'pointer',
-  },
-  statusBar: {
-    position: 'fixed',
-    bottom: 60,
-    left: 16,
-    padding: '8px 12px',
-    backgroundColor: 'rgba(26, 26, 46, 0.9)',
-    border: '1px solid #4a4a6e',
-    borderRadius: 6,
-    color: '#888',
-    fontFamily: 'monospace',
-    fontSize: 12,
-    zIndex: 100,
-  },
-};
 
 export default App;

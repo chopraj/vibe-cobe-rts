@@ -2,9 +2,10 @@ import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene';
 import { ArenaScene } from './scenes/ArenaScene';
 import { UIScene } from './scenes/UIScene';
+import { GAME_WIDTH, GAME_HEIGHT, COLORS } from '../constants';
 
-export const GAME_WIDTH = 1200;
-export const GAME_HEIGHT = 800;
+// Re-export dimensions for backwards compatibility
+export { GAME_WIDTH, GAME_HEIGHT };
 
 export function createGameConfig(parent: HTMLElement): Phaser.Types.Core.GameConfig {
   return {
@@ -12,7 +13,7 @@ export function createGameConfig(parent: HTMLElement): Phaser.Types.Core.GameCon
     parent,
     width: GAME_WIDTH,
     height: GAME_HEIGHT,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: COLORS.background,
     pixelArt: true,
     physics: {
       default: 'arcade',

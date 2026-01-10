@@ -4,32 +4,35 @@ import { useGameStore } from '../stores/gameStore';
 
 const API_BASE = '/api';
 
+// =============================================================================
+// BATTLES HOOK
+// =============================================================================
+
 export function useBattles() {
   const config = useGameStore((state) => state.config);
-  const setBattles = useGameStore((state) => state.setBattles);
-  const battles = useGameStore((state) => state.battles);
-
-  // Check if there are any active battles
-  const hasActiveBattles = battles.some(
-    (b) => b.status === 'pending' || b.status === 'fighting'
-  );
 
   return useQuery<Battle[]>({
     queryKey: ['battles'],
     queryFn: async () => {
       const res = await fetch(`${API_BASE}/battles`);
-      if (!res.ok) {
-        throw new Error('Failed to fetch battles');
-      }
-      const data = await res.json();
-      setBattles(data);
-      return data;
+      if (!res.ok) throw new Error('Failed to fetch battles');
+      return res.json();
     },
     enabled: !!config?.configured,
-    // Poll every 2 seconds if there are active battles, otherwise every 10 seconds
-    refetchInterval: hasActiveBattles ? 2000 : 10000,
+    // Dynamic polling: 2s when active battles exist, 10s otherwise
+    refetchInterval: (query) => {
+      const battles = query.state.data;
+      const hasActive = battles?.some(
+        (b) => b.status === 'pending' || b.status === 'fighting'
+      );
+      return hasActive ? 2000 : 10000;
+    },
   });
 }
+
+// =============================================================================
+// BATTLE MUTATIONS
+// =============================================================================
 
 export function useStartBattle() {
   const queryClient = useQueryClient();
@@ -70,4 +73,29 @@ export function useCancelBattle() {
       queryClient.invalidateQueries({ queryKey: ['battles'] });
     },
   });
+}
+
+// =============================================================================
+// LOCAL BATTLE MANAGEMENT
+// =============================================================================
+
+/**
+ * Hook for local battle dismissal (removes from React Query cache without API call).
+ * Use for hiding finished battles from the UI.
+ */
+export function useDismissBattle() {
+  const queryClient = useQueryClient();
+
+  return {
+    dismiss: (battleId: string) => {
+      queryClient.setQueryData<Battle[]>(['battles'], (old) =>
+        old?.filter((b) => b.id !== battleId) ?? []
+      );
+    },
+    clearFinished: () => {
+      queryClient.setQueryData<Battle[]>(['battles'], (old) =>
+        old?.filter((b) => b.status !== 'victory' && b.status !== 'defeat') ?? []
+      );
+    },
+  };
 }

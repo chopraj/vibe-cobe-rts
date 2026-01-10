@@ -22,7 +22,7 @@ export class UIScene extends Phaser.Scene {
     this.instructionsText.setOrigin(0.5, 0.5);
 
     // Add title
-    const title = this.add.text(GAME_WIDTH / 2, 20, 'RTS Issue Battle', {
+    const title = this.add.text(GAME_WIDTH / 2, 20, 'Vibe Code RTS', {
       font: 'bold 24px monospace',
       color: '#ffffff',
     });
