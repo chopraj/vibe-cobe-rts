@@ -29,7 +29,7 @@ export const ENGAGE_RADIUS = 100; // PROXIMITY_RADIUS + buffer
 // -----------------------------------------------------------------------------
 export const ENEMY_START_X = GAME_WIDTH - 200;
 export const ENEMY_START_Y = 100;
-export const ENEMY_SPACING = 60;
+export const ENEMY_SPACING = 120; // Increased for taller goblin sprites
 export const MAX_VISIBLE_ENEMIES = 10;
 export const ENEMY_SIZE = 32;
 

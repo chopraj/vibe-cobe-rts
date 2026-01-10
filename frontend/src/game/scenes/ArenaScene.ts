@@ -15,7 +15,6 @@ import {
   ENEMY_START_X,
   ENEMY_START_Y,
   ENEMY_SPACING,
-  MAX_VISIBLE_ENEMIES,
   COLORS,
 } from '../../constants';
 
@@ -75,12 +74,15 @@ export class ArenaScene extends Phaser.Scene {
       }
     }
 
-    // Add or update enemies
+    // Add or update enemies in a 3-column grid layout
+    const cols = 3;
+    const colSpacing = 80; // Horizontal spacing between columns
     issues.forEach((issue, index) => {
       let enemy = this.enemies.get(issue.number);
       if (!enemy) {
-        const x = ENEMY_START_X;
-        const y = ENEMY_START_Y + (index % MAX_VISIBLE_ENEMIES) * ENEMY_SPACING;
+        // Grid layout: spread enemies across columns, then rows
+        const x = ENEMY_START_X - (index % cols) * colSpacing;
+        const y = ENEMY_START_Y + Math.floor(index / cols) * ENEMY_SPACING;
         enemy = new IssueEnemy(this, x, y, issue);
         this.enemies.set(issue.number, enemy);
       }

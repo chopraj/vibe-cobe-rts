@@ -125,7 +125,9 @@ export class InputManager {
         this.units.forEach((u) => u.setSelected(false));
       }
       this.units.forEach((unit) => {
-        if (bounds.contains(unit.x, unit.y)) {
+        // Check if unit bounds overlap with selection box (not just center point)
+        const unitBounds = unit.getUnitBounds();
+        if (Phaser.Geom.Rectangle.Overlaps(bounds, unitBounds)) {
           unit.setSelected(true);
         }
       });

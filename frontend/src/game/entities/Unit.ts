@@ -123,11 +123,14 @@ export class Unit extends Phaser.GameObjects.Sprite {
   }
 
   getUnitBounds(): Phaser.Geom.Rectangle {
+    // Use scaled dimensions (this.width/height are unscaled frame size)
+    const scaledWidth = this.width * this.scaleX;
+    const scaledHeight = this.height * this.scaleY;
     return new Phaser.Geom.Rectangle(
-      this.x - this.width / 2,
-      this.y - this.height / 2,
-      this.width,
-      this.height
+      this.x - scaledWidth / 2,
+      this.y - scaledHeight / 2,
+      scaledWidth,
+      scaledHeight
     );
   }
 

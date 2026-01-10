@@ -57,12 +57,12 @@ export class BootScene extends Phaser.Scene {
   private createProceduralTextures(): void {
     const { battleEffect } = SPRITE_SIZES;
 
-    // Selection circle (gold ring under selected units)
-    const selectionSize = 48;
+    const selectionWidth = 48;
+    const selectionHeight = 24;
     const selectionG = this.make.graphics({ x: 0, y: 0 });
     selectionG.fillStyle(COLORS.unitSelectedBorder, 0.4);
-    selectionG.fillEllipse(selectionSize / 2, selectionSize / 2, selectionSize, selectionSize / 2);
-    selectionG.generateTexture('selection-circle', selectionSize, selectionSize / 2);
+    selectionG.fillEllipse(selectionWidth / 2, selectionHeight / 2, selectionWidth, selectionHeight);
+    selectionG.generateTexture('selection-circle', selectionWidth, selectionHeight);
     selectionG.destroy();
 
     // Battle effect sprite (yellow burst)
