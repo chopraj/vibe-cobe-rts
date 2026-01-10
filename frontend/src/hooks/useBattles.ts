@@ -16,16 +16,37 @@ export function useBattles() {
     queryFn: async () => {
       const res = await fetch(`${API_BASE}/battles`);
       if (!res.ok) throw new Error('Failed to fetch battles');
-      return res.json();
+      const data: Battle[] = await res.json();
+
+      // Log detailed state for active battles
+      data.forEach((battle) => {
+        if (battle.status === 'fighting') {
+          battle.agents.forEach((agent) => {
+            if (agent.detailedState) {
+              console.log(
+                `[Agent ${agent.id}]`,
+                `activity=${agent.detailedState.activity}`,
+                agent.detailedState.currentTool ? `tool=${agent.detailedState.currentTool}` : '',
+                `tokens=${agent.detailedState.tokens.input + agent.detailedState.tokens.output}`,
+                `files=${agent.detailedState.filesModified.length}`,
+                `steps=${agent.detailedState.stepsCompleted}`,
+                agent.detailedState.pendingPermission ? `⚠️ PERMISSION: ${agent.detailedState.pendingPermission.title}` : ''
+              );
+            }
+          });
+        }
+      });
+
+      return data;
     },
     enabled: !!config?.configured,
-    // Dynamic polling: 2s when active battles exist, 10s otherwise
+    // Dynamic polling: 500ms when active battles exist, 10s otherwise
     refetchInterval: (query) => {
       const battles = query.state.data;
       const hasActive = battles?.some(
         (b) => b.status === 'pending' || b.status === 'fighting'
       );
-      return hasActive ? 2000 : 10000;
+      return hasActive ? 500 : 10000;
     },
   });
 }
@@ -34,15 +55,20 @@ export function useBattles() {
 // BATTLE MUTATIONS
 // =============================================================================
 
+export interface StartBattleParams {
+  issueNumber: number;
+  unitCount: number;
+}
+
 export function useStartBattle() {
   const queryClient = useQueryClient();
 
-  return useMutation<Battle, Error, number>({
-    mutationFn: async (issueNumber) => {
+  return useMutation<Battle, Error, StartBattleParams>({
+    mutationFn: async ({ issueNumber, unitCount }) => {
       const res = await fetch(`${API_BASE}/battles`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ issueNumber }),
+        body: JSON.stringify({ issueNumber, unitCount }),
       });
       if (!res.ok) {
         const error = await res.json();

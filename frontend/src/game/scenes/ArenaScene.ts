@@ -28,7 +28,7 @@ import {
 
 // Callback interface for React communication
 export interface GameCallbacks {
-  onAttackIssue: (issueNumber: number) => void;
+  onAttackIssue: (issueNumber: number, unitCount: number) => void;
   onRequestCancelBattle: (battleId: string) => Promise<boolean>;
 }
 
@@ -39,7 +39,7 @@ export class ArenaScene extends Phaser.Scene {
   private inputManager!: InputManager;
 
   constructor() {
-    super({ key: 'ArenaScene' });
+    super({ key: "ArenaScene" });
   }
 
   create(): void {

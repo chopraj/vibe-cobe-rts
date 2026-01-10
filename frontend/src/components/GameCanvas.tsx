@@ -74,7 +74,7 @@ export function GameCanvas() {
     if (!game) return;
 
     const callbacks: GameCallbacks = {
-      onAttackIssue: (issueNumber: number) => {
+      onAttackIssue: (issueNumber: number, unitCount: number) => {
         // Check for existing active battle
         const existing = battles.find(
           (b) =>
@@ -82,7 +82,7 @@ export function GameCanvas() {
             (b.status === 'pending' || b.status === 'fighting')
         );
         if (!existing) {
-          startBattle.mutate(issueNumber);
+          startBattle.mutate({ issueNumber, unitCount });
         }
       },
       onRequestCancelBattle: (battleId: string) => {

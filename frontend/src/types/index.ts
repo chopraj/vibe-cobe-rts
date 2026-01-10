@@ -4,6 +4,52 @@ export type AgentStatus = 'pending' | 'working' | 'success' | 'failed' | 'cancel
 // Battle status
 export type BattleStatus = 'pending' | 'fighting' | 'victory' | 'defeat';
 
+// Detailed activity state for real-time tracking
+export type AgentActivity =
+  | 'initializing'
+  | 'thinking'
+  | 'tool_running'
+  | 'responding'
+  | 'waiting_permission'
+  | 'retrying'
+  | 'idle'
+  | 'completed';
+
+export interface PendingPermission {
+  id: string;
+  type: string;
+  title: string;
+  pattern?: string | string[];
+  metadata: Record<string, unknown>;
+  createdAt: number;
+}
+
+export interface AgentTodo {
+  id: string;
+  content: string;
+  status: string;
+  priority: string;
+}
+
+export interface AgentDetailedState {
+  activity: AgentActivity;
+  currentTool?: string;
+  currentToolTitle?: string;
+  tokens: { input: number; output: number; reasoning: number };
+  todos: AgentTodo[];
+  stepsCompleted: number;
+  filesModified: string[];
+  linesAdded: number;
+  linesDeleted: number;
+  errorCount: number;
+  retryCount: number;
+  lastError?: string;
+  pendingPermission?: PendingPermission;
+  isFinished: boolean;
+  finishReason?: string;
+  completedAt?: number;
+}
+
 // Each unit = one OpenCode agent instance
 export interface AgentInstance {
   id: string;
@@ -12,6 +58,7 @@ export interface AgentInstance {
   worktreePath: string;
   sessionId: string | null;
   error?: string;
+  detailedState?: AgentDetailedState;
 }
 
 // A "Battle" is a swarm attack on one issue with multiple agents

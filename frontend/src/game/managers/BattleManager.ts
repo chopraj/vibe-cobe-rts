@@ -27,7 +27,7 @@ export interface AttackIntent {
 }
 
 export interface BattleCallbacks {
-  onAttackIssue: (issueNumber: number) => void;
+  onAttackIssue: (issueNumber: number, unitCount: number) => void;
   onRequestCancelBattle: (battleId: string) => Promise<boolean>;
 }
 
@@ -125,6 +125,8 @@ export class BattleManager {
   }
 
   private triggerBattle(issueNumber: number, intent: AttackIntent): void {
+    const unitCount = intent.assignedUnits.length;
+
     // Clean up intent visuals
     this.removeIntent(issueNumber);
 
@@ -135,7 +137,7 @@ export class BattleManager {
     intent.assignedUnits.forEach((u) => u.clearTarget());
 
     // Notify React to start the battle
-    this.callbacks?.onAttackIssue(issueNumber);
+    this.callbacks?.onAttackIssue(issueNumber, unitCount);
   }
 
   // ---------------------------------------------------------------------------
