@@ -1,118 +1,66 @@
-import { useEffect, useRef, useState, useCallback } from "react";
-import Phaser from "phaser";
-import { createGameConfig } from "../game/config";
-import { useGameStore } from "../stores/gameStore";
-import { useStartBattle, useCancelBattle } from "../hooks/useBattles";
-import { ConfirmDialog } from "./ConfirmDialog";
-import type { ArenaScene } from "../game/scenes/ArenaScene";
-import type { Battle } from "../types";
+import { useEffect, useRef, useState, useCallback } from 'react';
+import Phaser from 'phaser';
+import { createGameConfig } from '../game/config';
+import { useStartBattle, useCancelBattle, useBattles } from '../hooks/useBattles';
+import { useIssues } from '../hooks/useGitHub';
+import { ConfirmDialog } from './ConfirmDialog';
+import type { ArenaScene, GameCallbacks } from '../game/scenes/ArenaScene';
 
-interface CancelConfirmation {
-  battleId: string;
-  callback: (confirmed: boolean) => void;
-}
+// =============================================================================
+// GAME CANVAS
+// =============================================================================
+// Bridge between React and Phaser. Handles:
+// - Game lifecycle (create/destroy)
+// - Data sync (issues/battles from React Query → Phaser)
+// - Callbacks (battle actions from Phaser → React mutations)
 
 export function GameCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
-  const gameCallbacksRef = useRef<{
-    startBattle: (issueNumber: number, unitCount: number) => void;
-    getBattles: () => Battle[];
-  }>({
-    startBattle: () => {},
-    getBattles: () => [],
-  });
-  const issues = useGameStore((state) => state.issues);
-  const battles = useGameStore((state) => state.battles);
+
+  // Data from React Query (single source of truth)
+  const { data: issues = [] } = useIssues();
+  const { data: battles = [] } = useBattles();
   const startBattle = useStartBattle();
   const cancelBattle = useCancelBattle();
 
-  // State for cancel confirmation dialog
-  const [cancelConfirmation, setCancelConfirmation] =
-    useState<CancelConfirmation | null>(null);
+  // Cancel confirmation dialog state
+  const [pendingCancel, setPendingCancel] = useState<{
+    battleId: string;
+    resolve: (confirmed: boolean) => void;
+  } | null>(null);
 
   // Handle cancel confirmation
   const handleConfirmCancel = useCallback(() => {
-    if (!cancelConfirmation) return;
-
-    // Cancel the battle
-    cancelBattle.mutate(cancelConfirmation.battleId, {
+    if (!pendingCancel) return;
+    cancelBattle.mutate(pendingCancel.battleId, {
       onSuccess: () => {
-        cancelConfirmation.callback(true);
-        setCancelConfirmation(null);
+        pendingCancel.resolve(true);
+        setPendingCancel(null);
       },
       onError: () => {
-        cancelConfirmation.callback(false);
-        setCancelConfirmation(null);
+        pendingCancel.resolve(false);
+        setPendingCancel(null);
       },
     });
-  }, [cancelConfirmation, cancelBattle]);
+  }, [pendingCancel, cancelBattle]);
 
   const handleDenyCancel = useCallback(() => {
-    if (cancelConfirmation) {
-      cancelConfirmation.callback(false);
-      setCancelConfirmation(null);
-    }
-  }, [cancelConfirmation]);
+    pendingCancel?.resolve(false);
+    setPendingCancel(null);
+  }, [pendingCancel]);
 
-  // Keep gameCallbacksRef updated with current values to avoid stale closures
-  useEffect(() => {
-    gameCallbacksRef.current = {
-      startBattle: (issueNumber: number, unitCount: number) =>
-        startBattle.mutate({ issueNumber, unitCount }),
-      getBattles: () => battles,
-    };
-  }, [battles, startBattle]);
+  // Get scene helper
+  const getScene = useCallback((): ArenaScene | null => {
+    return gameRef.current?.scene.getScene('ArenaScene') as ArenaScene | null;
+  }, []);
 
+  // Initialize Phaser game
   useEffect(() => {
     if (!containerRef.current || gameRef.current) return;
 
-    // Create game
     const config = createGameConfig(containerRef.current);
     gameRef.current = new Phaser.Game(config);
-
-    // Wait for game to be ready, then set up scene events
-    gameRef.current.events.on("ready", () => {
-      const arenaScene = gameRef.current?.scene.getScene(
-        "ArenaScene"
-      ) as ArenaScene;
-      if (!arenaScene) return;
-
-      const setupGameEvents = () => {
-        arenaScene.events.emit("setGameEvents", {
-          onAttackIssue: (issueNumber: number, unitCount: number) => {
-            // Use ref to get current battles (avoids stale closure)
-            const currentBattles = gameCallbacksRef.current.getBattles();
-            const existingBattle = currentBattles.find(
-              (b) =>
-                b.issueNumber === issueNumber &&
-                (b.status === "pending" || b.status === "fighting")
-            );
-            if (existingBattle) {
-              console.log(`Already battling issue #${issueNumber}`);
-              return;
-            }
-
-            // Use ref to call startBattle with unit count (avoids stale closure)
-            gameCallbacksRef.current.startBattle(issueNumber, unitCount);
-          },
-          onRequestCancelBattle: (
-            battleId: string,
-            callback: (confirmed: boolean) => void
-          ) => {
-            setCancelConfirmation({ battleId, callback });
-          },
-        });
-      };
-
-      // If scene is already active, set up events now
-      // Otherwise wait for the scene's create event
-      if (arenaScene.scene.isActive()) {
-        setupGameEvents();
-      } else {
-        arenaScene.events.once("create", setupGameEvents);
-      }
-    });
 
     return () => {
       gameRef.current?.destroy(true);
@@ -120,42 +68,86 @@ export function GameCanvas() {
     };
   }, []);
 
-  // Update issues in game
+  // Set up callbacks when scene is ready
   useEffect(() => {
-    const arenaScene = gameRef.current?.scene.getScene(
-      "ArenaScene"
-    ) as ArenaScene;
-    if (arenaScene && arenaScene.scene.isActive()) {
-      arenaScene.events.emit("updateIssues", issues);
-    }
-  }, [issues]);
+    const game = gameRef.current;
+    if (!game) return;
 
-  // Update battles in game
+    const callbacks: GameCallbacks = {
+      onAttackIssue: (issueNumber: number, unitCount: number) => {
+        // Check for existing active battle
+        const existing = battles.find(
+          (b) =>
+            b.issueNumber === issueNumber &&
+            (b.status === 'pending' || b.status === 'fighting')
+        );
+        if (!existing) {
+          startBattle.mutate({ issueNumber, unitCount });
+        }
+      },
+      onRequestCancelBattle: (battleId: string) => {
+        return new Promise<boolean>((resolve) => {
+          setPendingCancel({ battleId, resolve });
+        });
+      },
+    };
+
+    const setupCallbacks = () => {
+      const scene = getScene();
+      if (scene?.scene.isActive()) {
+        scene.setCallbacks(callbacks);
+      }
+    };
+
+    // Wait for game to be ready, then wait for scene to be created
+    const onGameReady = () => {
+      const scene = getScene();
+      if (scene) {
+        // If scene is already active, set up now
+        if (scene.scene.isActive()) {
+          setupCallbacks();
+        } else {
+          // Otherwise wait for scene's create event
+          scene.events.once('create', setupCallbacks);
+        }
+      }
+    };
+
+    game.events.once('ready', onGameReady);
+    // Also try immediately if game is already running
+    if (game.isRunning) onGameReady();
+
+    return () => {
+      game.events.off('ready', onGameReady);
+    };
+  }, [battles, startBattle, getScene]);
+
+  // Sync issues to Phaser
   useEffect(() => {
-    const arenaScene = gameRef.current?.scene.getScene(
-      "ArenaScene"
-    ) as ArenaScene;
-    if (arenaScene && arenaScene.scene.isActive()) {
-      arenaScene.events.emit("updateBattles", battles);
+    const scene = getScene();
+    if (scene?.scene.isActive()) {
+      scene.updateIssues(issues);
     }
-  }, [battles]);
+  }, [issues, getScene]);
+
+  // Sync battles to Phaser
+  useEffect(() => {
+    const scene = getScene();
+    if (scene?.scene.isActive()) {
+      scene.updateBattles(battles);
+    }
+  }, [battles, getScene]);
 
   return (
     <>
       <div
         ref={containerRef}
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
+        className="w-full h-full flex justify-center items-center"
       />
       <ConfirmDialog
-        isOpen={cancelConfirmation !== null}
+        isOpen={pendingCancel !== null}
         title="Cancel Battle?"
-        message="This will stop all AI agents working on this issue. The battle will be abandoned and you'll need to start over if you want to try again."
+        message="This will stop all AI agents working on this issue."
         confirmLabel="Cancel Battle"
         cancelLabel="Keep Fighting"
         onConfirm={handleConfirmCancel}

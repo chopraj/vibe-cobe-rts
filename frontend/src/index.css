@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+/* Custom game color theme */
+@theme {
+  --color-game-bg: #1a1a2e;
+  --color-game-panel: #2a2a4e;
+  --color-game-border: #4a4a6e;
+  --color-game-accent: #4444ff;
+  --color-game-error: #ff4444;
+  --color-game-success: #00ff00;
+  --color-game-warning: #ffff00;
+  --color-game-muted: #888888;
+}
+
+body {
+  background-color: var(--color-game-bg);
+  color: white;
+  font-family: monospace;
+  margin: 0;
+}
