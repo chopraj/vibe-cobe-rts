@@ -8,12 +8,23 @@ import { GAME_WIDTH, GAME_HEIGHT } from '../config';
 // Event types for communication with React
 export interface GameEvents {
   onAttackIssue: (issueNumber: number) => void;
+  onRequestCancelBattle: (battleId: string, callback: (confirmed: boolean) => void) => void;
+}
+
+// Track pending attack intents
+interface AttackIntent {
+  targetIssueNumber: number;
+  assignedUnits: Unit[];
+  approachLines: Phaser.GameObjects.Graphics;
+  targetHighlight: Phaser.GameObjects.Graphics;
 }
 
 export class ArenaScene extends Phaser.Scene {
   private units: Unit[] = [];
   private issueEnemies: Map<number, IssueEnemy> = new Map();
   private battleEffects: Map<string, BattleEffect> = new Map();
+  private attackIntents: Map<number, AttackIntent> = new Map();
+  private activeBattleIssues: Set<number> = new Set(); // Issues currently in battle
   private selectionBox: Phaser.GameObjects.Rectangle | null = null;
   private selectionStart: { x: number; y: number } | null = null;
   private gameEvents: GameEvents | null = null;
@@ -22,6 +33,7 @@ export class ArenaScene extends Phaser.Scene {
   private readonly UNIT_FORMATION_X = 150;
   private readonly UNIT_FORMATION_Y_START = 200;
   private readonly UNIT_SPACING = 50;
+  private readonly PROXIMITY_RADIUS = 50; // Distance to trigger battle
 
   constructor() {
     super({ key: 'ArenaScene' });
@@ -164,16 +176,49 @@ export class ArenaScene extends Phaser.Scene {
     const selectedUnits = this.units.filter((u) => u.isSelected());
     if (selectedUnits.length === 0) return;
 
-    // Check if clicking on an issue enemy
-    for (const [issueNumber, enemy] of this.issueEnemies) {
-      if (enemy.getBounds().contains(pointer.x, pointer.y)) {
-        // Attack this issue!
-        this.attackIssue(issueNumber, selectedUnits);
+    // Check if any selected units are engaged in battle
+    const engagedUnits = selectedUnits.filter((u) => u.isEngaged());
+    if (engagedUnits.length > 0) {
+      // Request confirmation to cancel battle
+      const battleId = engagedUnits[0].getEngagedBattleId();
+      if (battleId && this.gameEvents?.onRequestCancelBattle) {
+        this.gameEvents.onRequestCancelBattle(battleId, (confirmed) => {
+          if (confirmed) {
+            // Disengage all units from this battle
+            this.units.forEach((u) => {
+              if (u.getEngagedBattleId() === battleId) {
+                u.disengage();
+              }
+            });
+            // Now process the move command
+            this.processMove(selectedUnits, pointer);
+          }
+        });
         return;
       }
     }
 
-    // Otherwise, move units to position in formation
+    this.processMove(selectedUnits, pointer);
+  }
+
+  private processMove(selectedUnits: Unit[], pointer: Phaser.Input.Pointer): void {
+    // Check if clicking on an issue enemy
+    for (const [issueNumber, enemy] of this.issueEnemies) {
+      if (enemy.getBounds().contains(pointer.x, pointer.y)) {
+        // Create attack intent (don't trigger battle immediately)
+        this.createAttackIntent(issueNumber, selectedUnits);
+        return;
+      }
+    }
+
+    // Otherwise, move units to position in formation (cancel any intents)
+    selectedUnits.forEach((unit) => {
+      unit.clearTarget();
+    });
+
+    // Clean up intents for these units
+    this.cleanupIntentsForUnits(selectedUnits);
+
     const baseX = pointer.x;
     const baseY = pointer.y;
 
@@ -184,20 +229,133 @@ export class ArenaScene extends Phaser.Scene {
     });
   }
 
-  private attackIssue(issueNumber: number, units: Unit[]): void {
+  private createAttackIntent(issueNumber: number, units: Unit[]): void {
+    // Check if already in battle with this issue
+    if (this.activeBattleIssues.has(issueNumber)) {
+      console.log(`Already battling issue #${issueNumber}`);
+      return;
+    }
+
     const enemy = this.issueEnemies.get(issueNumber);
     if (!enemy) return;
+
+    // Clean up any existing intent for this issue
+    this.removeAttackIntent(issueNumber);
+
+    // Clean up intents these units were part of
+    this.cleanupIntentsForUnits(units);
+
+    // Create visual indicators
+    const approachLines = this.add.graphics();
+    const targetHighlight = this.add.graphics();
+
+    // Draw pulsing highlight around target
+    targetHighlight.lineStyle(3, 0xffff00, 1);
+    targetHighlight.strokeCircle(enemy.x, enemy.y, 45);
+
+    // Add pulse animation to highlight
+    this.tweens.add({
+      targets: targetHighlight,
+      alpha: { from: 1, to: 0.3 },
+      duration: 500,
+      yoyo: true,
+      repeat: -1,
+    });
+
+    const intent: AttackIntent = {
+      targetIssueNumber: issueNumber,
+      assignedUnits: [...units],
+      approachLines,
+      targetHighlight,
+    };
+
+    this.attackIntents.set(issueNumber, intent);
 
     // Move units toward the enemy
     units.forEach((unit, index) => {
       const offsetX = (index % 3 - 1) * 30;
-      const offsetY = Math.floor(index / 3) * 30 - 50;
-      unit.moveTo(enemy.x + offsetX, enemy.y + offsetY);
+      const offsetY = Math.floor(index / 3) * 30 - 30;
+      unit.moveTo(enemy.x + offsetX, enemy.y + offsetY, issueNumber);
+    });
+  }
+
+  private removeAttackIntent(issueNumber: number): void {
+    const intent = this.attackIntents.get(issueNumber);
+    if (intent) {
+      intent.approachLines.destroy();
+      intent.targetHighlight.destroy();
+      this.attackIntents.delete(issueNumber);
+    }
+  }
+
+  private cleanupIntentsForUnits(units: Unit[]): void {
+    for (const [issueNumber, intent] of this.attackIntents) {
+      const remainingUnits = intent.assignedUnits.filter(
+        (u) => !units.includes(u)
+      );
+      if (remainingUnits.length === 0) {
+        this.removeAttackIntent(issueNumber);
+      } else {
+        intent.assignedUnits = remainingUnits;
+      }
+    }
+  }
+
+  private updateApproachLines(): void {
+    for (const [issueNumber, intent] of this.attackIntents) {
+      const enemy = this.issueEnemies.get(issueNumber);
+      if (!enemy) continue;
+
+      // Redraw approach lines
+      intent.approachLines.clear();
+      intent.approachLines.lineStyle(2, 0x00ff00, 0.5);
+
+      intent.assignedUnits.forEach((unit) => {
+        intent.approachLines.lineBetween(unit.x, unit.y, enemy.x, enemy.y);
+      });
+    }
+  }
+
+  private checkProximityTriggers(): void {
+    for (const [issueNumber, intent] of this.attackIntents) {
+      const enemy = this.issueEnemies.get(issueNumber);
+      if (!enemy) continue;
+
+      // Check if any assigned unit is close enough to trigger battle
+      const arrivedUnit = intent.assignedUnits.find((unit) => {
+        const dx = unit.x - enemy.x;
+        const dy = unit.y - enemy.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        return distance < this.PROXIMITY_RADIUS;
+      });
+
+      if (arrivedUnit) {
+        // Trigger the battle!
+        this.triggerBattle(issueNumber, intent);
+      }
+    }
+  }
+
+  private triggerBattle(issueNumber: number, intent: AttackIntent): void {
+    console.log(`Battle triggered for issue #${issueNumber}`);
+
+    // Remove the attack intent visuals
+    this.removeAttackIntent(issueNumber);
+
+    // Mark this issue as having an active battle
+    this.activeBattleIssues.add(issueNumber);
+
+    // Clear unit targets
+    intent.assignedUnits.forEach((unit) => {
+      unit.clearTarget();
     });
 
-    // Trigger the attack callback
+    // Trigger the attack callback to start the battle
     if (this.gameEvents?.onAttackIssue) {
+      console.log("got here")
       this.gameEvents.onAttackIssue(issueNumber);
+    } else {
+      console.log("no game events");
     }
   }
 
@@ -208,6 +366,7 @@ export class ArenaScene extends Phaser.Scene {
       if (!issueNumbers.has(num)) {
         enemy.destroy();
         this.issueEnemies.delete(num);
+        this.removeAttackIntent(num);
       }
     }
 
@@ -228,12 +387,27 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   updateBattles(battles: Battle[]): void {
+    // Track which issues have active battles
+    this.activeBattleIssues.clear();
+    battles.forEach((b) => {
+      if (b.status === 'pending' || b.status === 'fighting') {
+        this.activeBattleIssues.add(b.issueNumber);
+      }
+    });
+
     // Clear old effects
     for (const [battleId, effect] of this.battleEffects) {
       const battle = battles.find((b) => b.id === battleId);
       if (!battle || battle.status === 'victory' || battle.status === 'defeat') {
         effect.destroy();
         this.battleEffects.delete(battleId);
+
+        // Disengage units from this battle
+        this.units.forEach((unit) => {
+          if (unit.getEngagedBattleId() === battleId) {
+            unit.disengage();
+          }
+        });
       }
     }
 
@@ -244,6 +418,16 @@ export class ArenaScene extends Phaser.Scene {
         if (enemy && !this.battleEffects.has(battle.id)) {
           const effect = new BattleEffect(this, enemy.x, enemy.y, battle);
           this.battleEffects.set(battle.id, effect);
+
+          // Engage nearby units in this battle
+          this.units.forEach((unit) => {
+            const dx = unit.x - enemy.x;
+            const dy = unit.y - enemy.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance < this.PROXIMITY_RADIUS + 50) {
+              unit.engage(battle.id);
+            }
+          });
         }
       }
 
@@ -284,5 +468,11 @@ export class ArenaScene extends Phaser.Scene {
 
     // Update all battle effects
     this.battleEffects.forEach((effect) => effect.update());
+
+    // Update approach lines (redraw each frame as units move)
+    this.updateApproachLines();
+
+    // Check if any units have reached their target enemy
+    this.checkProximityTriggers();
   }
 }

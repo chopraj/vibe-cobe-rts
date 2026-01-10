@@ -35,6 +35,13 @@ export class IssueEnemy extends Phaser.GameObjects.Container {
 
     scene.add.existing(this);
 
+    // Add physics body for proximity detection
+    scene.physics.add.existing(this);
+    const body = this.body as Phaser.Physics.Arcade.Body;
+    body.setCircle(40); // Proximity radius
+    body.setOffset(-40, -40); // Center the circle
+    body.setImmovable(true);
+
     // Idle animation - slight bob
     scene.tweens.add({
       targets: this.sprite,
@@ -80,6 +87,10 @@ export class IssueEnemy extends Phaser.GameObjects.Container {
 
   getIssue(): GitHubIssue {
     return this.issue;
+  }
+
+  getIssueNumber(): number {
+    return this.issue.number;
   }
 
   getBounds(): Phaser.Geom.Rectangle {
