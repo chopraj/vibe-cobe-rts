@@ -3,7 +3,8 @@ import { Unit } from '../entities/Unit';
 import { IssueEnemy } from '../entities/IssueEnemy';
 import { BattleManager } from '../managers/BattleManager';
 import { InputManager } from '../managers/InputManager';
-import type { GitHubIssue, Battle } from '../../types';
+import type { GitHubIssue, Battle, UnitType } from '../../types';
+import { UNIT_TYPES } from '../../types';
 import {
   GAME_WIDTH,
   GAME_HEIGHT,
@@ -156,7 +157,9 @@ export class ArenaScene extends Phaser.Scene {
     for (let i = 0; i < count; i++) {
       const x = UNIT_FORMATION_X + Math.floor(i / 5) * UNIT_SPACING;
       const y = UNIT_FORMATION_Y_START + (i % 5) * UNIT_SPACING;
-      this.units.push(new Unit(this, x, y, i));
+      // Cycle through unit types for equal distribution
+      const unitType: UnitType = UNIT_TYPES[i % UNIT_TYPES.length];
+      this.units.push(new Unit(this, x, y, i, unitType));
     }
   }
 

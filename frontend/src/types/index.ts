@@ -1,3 +1,39 @@
+// Unit types representing different LLM solving approaches
+export type UnitType = 'knight' | 'archer' | 'mage' | 'spearman';
+
+// Personality/approach for each unit type
+export interface UnitPersonality {
+  name: string;
+  approach: string;
+  description: string;
+}
+
+export const UNIT_PERSONALITIES: Record<UnitType, UnitPersonality> = {
+  knight: {
+    name: 'Tank',
+    approach: 'Thorough',
+    description: 'Comprehensive approach - adds tests, docs, handles edge cases',
+  },
+  archer: {
+    name: 'Sniper',
+    approach: 'Minimal',
+    description: 'Smallest valid diff - surgical precision, minimal changes',
+  },
+  mage: {
+    name: 'Refactorer',
+    approach: 'Creative',
+    description: 'Improves surrounding code while fixing the issue',
+  },
+  spearman: {
+    name: 'Speedster',
+    approach: 'Fast',
+    description: 'Quick implementation - gets it working fast',
+  },
+};
+
+// Array of unit types for cycling through distribution
+export const UNIT_TYPES: UnitType[] = ['knight', 'archer', 'mage', 'spearman'];
+
 // Agent status within a battle
 export type AgentStatus = 'pending' | 'working' | 'success' | 'failed' | 'cancelled';
 

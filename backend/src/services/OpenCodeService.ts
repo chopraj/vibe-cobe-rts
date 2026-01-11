@@ -226,7 +226,7 @@ Please analyze the codebase, implement a fix, and make the necessary changes. Wh
       abortController?.abort();
 
       // Wait for event subscription to clean up
-      await eventPromise.catch(() => {});
+      await eventPromise.catch(() => { });
 
       // Mark as finished now that prompt() returned
       agentSession.detailedState.isFinished = true;
