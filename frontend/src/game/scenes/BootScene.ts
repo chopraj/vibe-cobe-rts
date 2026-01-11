@@ -17,10 +17,22 @@ export class BootScene extends Phaser.Scene {
   }
 
   private loadSprites(): void {
-    this.load.spritesheet('agent', 'assets/sprites/agent.png', {
+    // Knight sprites (existing)
+    this.load.spritesheet('knight', 'assets/sprites/agent.png', {
       frameWidth: 704,
       frameHeight: 1536,
     });
+
+    // Additional unit type sprites (archer, mage, spearman)
+    // Image is 2816x1536: 8 columns x 2 rows = 16 frames (352x768 each)
+    // Row 1: Archers (frames 0-5, rest empty)
+    // Row 2: Mages (frames 8-11), Spearmen (frames 12-15)
+    this.load.spritesheet('more-sprites', 'assets/sprites/more-sprites.png', {
+      frameWidth: 352,
+      frameHeight: 768,
+    });
+
+    // Enemy sprites
     this.load.spritesheet('issue-sprite', 'assets/sprites/issue.png', {
       frameWidth: 704,
       frameHeight: 1536,

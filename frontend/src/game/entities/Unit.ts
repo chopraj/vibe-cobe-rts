@@ -1,10 +1,22 @@
 import Phaser from 'phaser';
+import type { UnitType, UnitPersonality } from '../../types';
+import { UNIT_PERSONALITIES } from '../../types';
 
-// Scale factor to resize the large sprite sheet frames (704x1536) to game size
-const AGENT_SCALE = .1;
+// Scale factors for different sprite sizes
+const KNIGHT_SCALE = 0.1; // 704x1536 frames
+const OTHER_SCALE = 0.15; // 352x768 frames (slightly larger to match knight visual size)
+
+// Sprite configuration for each unit type
+const UNIT_SPRITE_CONFIG: Record<UnitType, { key: string; frame: number; scale: number }> = {
+  knight: { key: 'knight', frame: 0, scale: KNIGHT_SCALE },
+  archer: { key: 'more-sprites', frame: 0, scale: OTHER_SCALE },
+  mage: { key: 'more-sprites', frame: 8, scale: OTHER_SCALE },
+  spearman: { key: 'more-sprites', frame: 12, scale: OTHER_SCALE },
+};
 
 export class Unit extends Phaser.GameObjects.Sprite {
   private unitIndex: number;
+  private unitType: UnitType;
   private selected: boolean = false;
   private targetX: number | null = null;
   private targetY: number | null = null;
@@ -13,13 +25,15 @@ export class Unit extends Phaser.GameObjects.Sprite {
   private targetIssueNumber: number | null = null; // Issue we're moving toward
   private selectionCircle: Phaser.GameObjects.Sprite;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, index: number) {
-    super(scene, x, y, 'agent', 0);
+  constructor(scene: Phaser.Scene, x: number, y: number, index: number, unitType: UnitType = 'knight') {
+    const config = UNIT_SPRITE_CONFIG[unitType];
+    super(scene, x, y, config.key, config.frame);
     this.unitIndex = index;
+    this.unitType = unitType;
     this.selected = true; // Start selected
 
-    // Scale down the large sprite
-    this.setScale(AGENT_SCALE);
+    // Scale based on unit type
+    this.setScale(config.scale);
 
     // Create selection circle underneath the unit
     this.selectionCircle = scene.add.sprite(x, y + 25, 'selection-circle');
@@ -34,6 +48,14 @@ export class Unit extends Phaser.GameObjects.Sprite {
 
   getIndex(): number {
     return this.unitIndex;
+  }
+
+  getUnitType(): UnitType {
+    return this.unitType;
+  }
+
+  getPersonality(): UnitPersonality {
+    return UNIT_PERSONALITIES[this.unitType];
   }
 
   isSelected(): boolean {
