@@ -2,6 +2,7 @@
 
 /* Custom game color theme */
 @theme {
+  --spacing: 0.25rem;
   --color-game-bg: #1a1a2e;
   --color-game-panel: #2a2a4e;
   --color-game-border: #4a4a6e;

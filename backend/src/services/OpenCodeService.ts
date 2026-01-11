@@ -58,6 +58,8 @@ export class OpenCodeService {
   private activeSessions: Map<string, AgentSession> = new Map();
   private isShuttingDown: boolean = false;
   private nextPort: number = 4096;
+  // Mutex to serialize process.chdir() operations (SDK doesn't support cwd option yet)
+  private chdirMutex: Promise<void> = Promise.resolve();
 
   async startSession(
     agentId: string,
@@ -134,18 +136,28 @@ export class OpenCodeService {
 
       // Create OpenCode server and client using SDK
       // We need to change to the worktree directory before creating the server
-      const originalCwd = process.cwd();
-      process.chdir(worktreePath);
-
+      // Use mutex to prevent race condition - multiple concurrent chdir() calls corrupt global state
       let opencode: OpencodeInstance;
-      try {
-        opencode = await createOpencode({
-          port,
-          timeout: 15000, // 15 seconds to start server
-        });
-      } finally {
-        process.chdir(originalCwd);
-      }
+      const createServer = async (): Promise<OpencodeInstance> => {
+        const originalCwd = process.cwd();
+        process.chdir(worktreePath);
+        try {
+          return await createOpencode({
+            port,
+            timeout: 15000, // 15 seconds to start server
+          });
+        } finally {
+          process.chdir(originalCwd);
+        }
+      };
+
+      // Chain onto the mutex to serialize chdir operations
+      opencode = await new Promise<OpencodeInstance>((resolve, reject) => {
+        this.chdirMutex = this.chdirMutex
+          .then(() => createServer())
+          .then(resolve)
+          .catch(reject);
+      });
 
       agentSession.client = opencode.client;
       agentSession.server = opencode.server;
